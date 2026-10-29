@@ -1,0 +1,64 @@
+-- 1. What is the total income across all accounts?
+
+SELECT a.account_type,c.transaction_type,sum(abs(t.amount)) Income
+FROM accounts a 
+JOIN transactions t ON a.account_id = t.account_id
+JOIN categories c ON c.category_id=t.category_id
+WHERE c.transaction_type = "Income"
+GROUP BY 1,2;
+
+-- 2. What is the total amount of expenses across all accounts?
+
+SELECT a.account_type,c.transaction_type,sum(abs(t.amount)) Income
+FROM accounts a 
+JOIN transactions t ON a.account_id = t.account_id
+JOIN categories c ON c.category_id=t.category_id
+WHERE c.transaction_type = "Expense"
+GROUP BY 1,2;
+
+-- 3. What is the net savings (total income minus total expenses)?
+
+WITH total_income AS (
+						SELECT a.account_type,c.transaction_type,sum(abs(t.amount)) Income
+						FROM accounts a 
+						JOIN transactions t ON a.account_id = t.account_id
+						JOIN categories c ON c.category_id=t.category_id
+						WHERE c.transaction_type = "Income"
+						GROUP BY 1,2
+					),
+total_exp AS 		(
+						SELECT a.account_type,c.transaction_type,sum(abs(t.amount)) Expenses
+						FROM accounts a 
+						JOIN transactions t ON a.account_id = t.account_id
+						JOIN categories c ON c.category_id=t.category_id
+						WHERE c.transaction_type = "Expense"
+						GROUP BY 1,2
+					)
+SELECT SUM(Income) Total_Income,
+SUM(expenses) Total_Exp,
+SUM(tc.income - tx.expenses) Net_Saving
+FROM total_income tc
+JOIN total_exp tx ON tc.account_type=tx.account_type;
+
+
+-- 4. What percentage of income is being saved (savings rate)?
+
+SELECT 
+		ROUND((SUM(CASE WHEN c.transaction_type = 'Income' THEN ABS(t.amount) ELSE 0 END)-
+		SUM(CASE WHEN c.transaction_type = 'Expense' THEN ABS(t.amount) ELSE 0 END))*100 / 
+		NULLIF(SUM(CASE WHEN c.transaction_type = 'Income' THEN ABS(t.amount) ELSE 0 END),0),2)
+AS saving_rate_per
+FROM transactions t
+JOIN categories c ON t.category_id=c.category_id;
+
+-- 5. What is the monthly cash flow (income vs expenses per month)?
+
+SELECT DATE_FORMAT(t.transaction_date,'%Y-%m') Date_Month,
+SUM(CASE WHEN c.transaction_type = 'Income' THEN ABS(t.amount) ELSE 0 END) Income_Amount,
+SUM(CASE WHEN c.transaction_type = 'Expense' THEN ABS(t.amount) ELSE 0 END) Expense_Amount,
+(SUM(CASE WHEN c.transaction_type = 'Income' THEN ABS(t.amount) ELSE 0 END)  - 
+SUM(CASE WHEN c.transaction_type = 'Expense' THEN ABS(t.amount) ELSE 0 END)) Net_Case_Flow
+FROM transactions t
+JOIN categories c ON c.category_id=t.category_id
+GROUP BY 1
+ORDER BY 1;
